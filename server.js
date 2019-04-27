@@ -7,11 +7,16 @@ const express = require('express');
 const app = express();
 const superagent = require('superagent');
 const cors = require('cors');
+const pg = require('pg');
 
 app.use(cors());
 
 const PORT = process.env.PORT;
 
+//Connecting to the database
+const client = new pg.Client(process.env.DATABASE_URL);
+client.connect();
+client.on('error', err => console.log(err));
 //API routes
 
 app.get('/location', searchToLatLong);
