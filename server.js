@@ -125,16 +125,33 @@ function Weather(day) {
 
 
 function getEvents(request, response) {
-  const url = `https://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.longitude=${request.query.data.longitude}&location.latitude=${request.query.data.latitude}&expand=venue`;
+  const sql = `SELECT * FROM events WHERE location_id=$1;`;
+  const values = [request.query.data.id];
 
-  superagent.get(url)
+  return client.query(sql, values)
     .then(result => {
-      console.log(result);
-      const events = result.body.events.map(event => new Event(event));
-      response.send(events.slice(0, 20));
+      if (result.rowCount > 0) {
+        response.send(result.rows[0]);
+      } else {
+        const url = `https://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.longitude=${request.query.data.longitude}&location.latitude=${request.query.data.latitude}&expand=venue`;
+
+        superagent.get(url)
+          .then(result => {
+            const event = result.body.events.map(events => {
+              const event = new Event(events);
+              return event;
+            });
+            let newSQL = `INSERT INTO meetups(link, name, event_date, location_id ) VALUES ($1, $2, $3, $4, $5);`;
+
+            let newValues = Object.values(event);
+            return client.query(newSQL, newValues)
+          })
+          .catch(err => handleError(err, response));
+        response.send(event.slice(0, 20));
+      }
     })
-    .catch(err => handleError(err, response));
 }
+
 
 //eventbrite constructor
 function Event(events) {
