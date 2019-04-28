@@ -40,7 +40,7 @@ function searchToLatLong(request, response) {
   let sql = `SELECT * FROM locations WHERE search_query=$1;`;
   let values = [query];
 
-  console.log('line 71', sql, values);
+  // console.log('line 71', sql, values);
 
   //Makes the query of the database
   client.query(sql, values)
@@ -118,14 +118,14 @@ function getWeather(request, response) {
   client.query(sql, values)
     .then(result => {
       if (result.rowCount > 0) {
-        console.log('Weather from SQL');
+        // console.log('Weather from SQL');
         response.send(result.rows);
       } else {
         const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
 
         return superagent.get(url)
           .then(weatherResults => {
-            console.log('Weather from API');
+            // console.log('Weather from API');
             if (!weatherResults.body.daily.data.length) { throw 'NO DATA'; }
             else {
               const weatherSummaries = weatherResults.body.daily.data.map(day => {
@@ -134,7 +134,7 @@ function getWeather(request, response) {
 
                 let newSql = `INSERT INTO weathers (forecast, time, location_id) VALUES($1, $2, $3);`;
                 let newValues = Object.values(summary);
-                console.log(newValues);
+                // console.log(newValues);
                 client.query(newSql, newValues);
 
                 return summary;
@@ -146,13 +146,7 @@ function getWeather(request, response) {
           })
           .catch(error => handleError(error, response));
       }
-
-
-
     });
-
-
-
 }
 
 function Weather(day) {
@@ -161,17 +155,47 @@ function Weather(day) {
 }
 
 
+// function getEvents(request, response) {
+//   const url = `https://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.address=${request.query.data.formatted_query}`;
+
+//   superagent.get(url)
+//     .then(result => {
+//       const events = result.body.events.map(eventData => {
+//         const event = new Event(eventData);
+//         return event;
+//       });
+
+//       response.send(events);
+//     })
+//     .catch(error => handleError(error, response));
+// }
 
 function getEvents(request, response) {
-  const url = `https://www.eventbriteapi.com/v3/events/search/token=${process.env.EVENTBRITE_API_KEY}&location.address=${request.query.data.formatted_query}`;
+  const url = `https://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.longitude=${request.query.data.longitude}&location.latitude=${request.query.data.latitude}&expand=venue`;
 
   superagent.get(url)
     .then(result => {
-      const eventSummaries = result.body.events.map(event => new Event(event));
-      response.send(eventSummaries);
+      const events = result.body.events.map(eventData => {
+        const event = new Event(eventData);
+        console.log('********************************************************************************************');
+        console.log(event);
+        return event;
+      });
+
+      response.send(events);
     })
     .catch(error => handleError(error, response));
 }
+
+function Event(event) {
+  this.link = event.url;
+  this.name = event.name.text;
+  this.event_date = new Date(event.start.local).toString().slice(0, 15);
+  this.summary = event.summary;
+}
+
+
+
 
 // function Location(data, userData) {
 //   this.formatted_query = data.body.results[0].formatted_address;
@@ -187,12 +211,7 @@ function getEvents(request, response) {
 //   this.forecast = day.summary;
 // }
 
-function Event(event) {
-  this.link = event.url;
-  this.name = event.name.text;
-  this.event_date = new Date(event.start.local).toString().slice(0, 15);
-  this.summary = event.summary;
-}
+
 
 function handleError(err, response) {
   console.error(err);
